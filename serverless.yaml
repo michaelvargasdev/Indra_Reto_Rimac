@@ -1,0 +1,145 @@
+service: INDRA-RETO-RIMAC
+frameworkVersion: '3'
+configValidationMode: error
+deprecationNotificationMode: error
+useDotenv: true
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage,'DESA'}
+  region: us-east-2
+  timeout: 300
+  memorySize: 512
+  versionFunctions: false
+  logRetentionInDays: 30
+  architecture: arm64
+
+  tracing:
+    lambda: true
+
+  environment:
+    SNS_SCHEDULE: sns-schedule
+    SQS_SCHEDULE_CL: sqs-schedule-cl
+    SQS_SCHEDULE_PE: sqs-schedule-pe
+    DDB_SCHEDULES: schedules
+    RDS_MYSQL_CONECTION: "{ host: , user: , password: 123 }"
+
+custom:
+  xyz: xyz
+
+plugins:
+  - serverless-offline
+  - serverless-plugin-typescript
+
+package:
+  individually: true
+
+functions:
+  appointment:
+    handler: src/appointment/index.handler
+    events:
+      - http:
+          path: /V1/appointment
+          method: post
+          integration: lambda
+      - sqs:
+          arn: arn:aws:sqs:region:us-east-2:sqsChangeState
+          batchSize: 10
+          maximumBatchingWindow: 60
+          #functionResponseType: ReportBatchItemFailures
+  appointment_pe:
+    handler: src/appointment/index.handler
+    events:
+      - sqs:
+          arn: arn:aws:sqs:region:us-east-2:sqsSchedulePe
+          batchSize: 10
+          maximumBatchingWindow: 60
+          #functionResponseType: ReportBatchItemFailures
+  appointment_cl:
+    handler: src/appointment/index.handler
+    events:
+      - sqs:
+          arn: arn:aws:sqs:region:us-east-2:sqsScheduleCl
+          batchSize: 10
+          maximumBatchingWindow: 60
+          #functionResponseType: ReportBatchItemFailures
+resources:
+  Resources:
+    topicPe:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: topicPe
+        ContentBasedDeduplication: false
+        FifoTopic: true
+    topicCL:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: topicCL
+    sqsChangeState:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: "sqsChangeState"
+        FifoQueue: True
+    sqsSchedulePe:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqsSchedulePe
+        FifoQueue: True
+    sqsScheduleCl:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: sqsScheduleCl
+        FifoQueue: True
+    SnsSubscriptionPe:
+      Type: AWS::SNS::Subscrition
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt: sqsSchedulePe.Arn
+    SnsSubscriptionCl:
+      Type: AWS::SNS::Subscrition
+      Properties:
+        Protocol: sqs
+        Endpoint:
+          Fn::GetAtt: sqsSchedulecl.Arn
+    appointment:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: appointment
+        AttributeDefinitions:
+          - AttributeName: insuredId
+            AttributeType: S
+          - AttributeName: scheduleId
+            AttributeType: N
+          - AttributeName: countryISO
+            AttributeType: S
+          - AttributeName: state
+            AttributeType: S
+        KeySchema:
+          - AttributeName: insuredId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+    schedule:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: appointment
+        AttributeDefinitions:
+          - AttributeName: scheduleId
+            AttributeType: N
+          - AttributeName: centerId
+            AttributeType: N
+          - AttributeName: specialtyId
+            AttributeType: N
+          - AttributeName: medicId
+            AttributeType: N
+          - AttributeName: date
+            AttributeType: s
+        KeySchema:
+          - AttributeName: scheduleId
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1

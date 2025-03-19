@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+      "preserveConstEnums": true,
+      "strictNullChecks": true,
+      "sourceMap": true,
+      "allowJs": true,
+      "outDir": ".build",
+      "module": "commonjs",
+      "moduleResolution": "node",
+      "rootDir": "./",
+      "target": "ES2021",
+      "noImplicitAny": false,
+      "removeComments": true,
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      "esModuleInterop": true,
+      "paths": {},
+      "resolveJsonModule": true
+    },
+    "exclude": ["node_modules"]
+  }
+  
