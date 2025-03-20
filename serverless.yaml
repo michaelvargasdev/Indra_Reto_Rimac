@@ -19,10 +19,12 @@ provider:
     lambda: true
 
   environment:
-    SNS_SCHEDULE: sns-schedule
-    SQS_SCHEDULE_CL: sqs-schedule-cl
-    SQS_SCHEDULE_PE: sqs-schedule-pe
-    DDB_SCHEDULES: schedules
+    SNS_SCHEDULE_ARN_PE: ""
+    SNS_SCHEDULE_ARN_CL: ""
+    SQS_SCHEDULE_PE: sqsSchedulePe
+    SQS_SCHEDULE_CL: sqsScheduleCl
+    DDB_APPOINTMENT: appointment
+    DDB_SCHEDULE: schedule
     RDS_MYSQL_CONECTION: "{ host: , user: , password: 123 }"
 
 custom:
@@ -103,6 +105,30 @@ resources:
         Protocol: sqs
         Endpoint:
           Fn::GetAtt: sqsSchedulecl.Arn
+    EventRule: 
+      Type: AWS::Events::Rule
+      Properties: 
+        Description: "EventRule"
+        EventPattern: 
+          account: 
+            - !Sub '${AWS::AccountId}'
+          source:
+            - "demo.sqs"
+        Targets: 
+          - Arn: !GetAtt sqsChangeState.Arn
+            Id: "SQSqueue"
+    EventBridgeToToSqsPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: SQS:SendMessage
+            Resource:  !GetAtt sqsChangeState.Arn
+        Queues:
+          - Ref: MySqsQueue
     appointment:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -114,8 +140,6 @@ resources:
             AttributeType: N
           - AttributeName: countryISO
             AttributeType: S
-          - AttributeName: state
-            AttributeType: S
         KeySchema:
           - AttributeName: insuredId
             KeyType: HASH
@@ -125,7 +149,7 @@ resources:
     schedule:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: appointment
+        TableName: schedule
         AttributeDefinitions:
           - AttributeName: scheduleId
             AttributeType: N
@@ -137,9 +161,24 @@ resources:
             AttributeType: N
           - AttributeName: date
             AttributeType: s
+          - AttributeName: state
+            AttributeType: S
         KeySchema:
           - AttributeName: scheduleId
             KeyType: HASH
         ProvisionedThroughput:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
+#   Outputs:
+#      topicPeArn:
+#        Description: ARN of topicPe
+#        Value: 
+#          "Fn::GetAtt": ["topicPe", "Arn"]
+#        Export:
+#          Name: topicPeArn
+#      topicClArn:
+#        Description: ARN of topicCl
+#        Value: 
+#          "Fn::GetAtt": ["topicCl", "Arn"]
+#        Export:
+#          Name: topicClArn
